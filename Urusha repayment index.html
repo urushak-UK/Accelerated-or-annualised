@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loan Repayment Comparison</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        /* Hide number input arrows */
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+        .card-enter { animation: fadeIn 0.3s ease-out forwards; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen p-4 md:p-8">
+
+    <div class="max-w-7xl mx-auto">
+        <header class="mb-8 text-center md:text-left">
+            <h1 class="text-3xl font-bold text-slate-800 tracking-tight">Loan Repayment Comparison</h1>
+            <p class="text-slate-500 mt-2">Compare up to 6 lenders, adjust individual rates, and see how calculation methods affect your repayments.</p>
+        </header>
+
+        <!-- Global Loan Details -->
+        <div class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 mb-8">
+            <h2 class="text-lg font-semibold text-slate-800 mb-4">Global Loan Details</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- Loan Amount -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-2">Loan Amount</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <span class="text-slate-400 font-medium">$</span>
+                        </div>
+                        <input type="number" id="globalAmount" value="500000" class="block w-full pl-8 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
+                    </div>
+                </div>
+
+                <!-- Loan Term -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-2">Loan Term</label>
+                    <div class="relative">
+                        <input type="number" id="globalTerm" value="30" class="block w-full pl-3 pr-12 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
+                        <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                            <span class="text-slate-400 text-sm">Years</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Repayment Type -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-2">Repayment Type</label>
+                    <select id="globalType" class="block w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
+                        <option value="pi">Principal & Interest</option>
+                        <option value="io">Interest Only</option>
+                    </select>
+                </div>
+
+                <!-- Repayment Frequency -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-2">Repayment Frequency</label>
+                    <select id="globalFreq" class="block w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
+                        <option value="monthly">Monthly</option>
+                        <option value="fortnightly">Fortnightly</option>
+                        <option value="weekly">Weekly</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lender Selection & Comparison Grid -->
+        <div>
+            <div class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+                <h2 class="text-xl font-semibold text-slate-800">Lender Comparison <span id="lenderCount" class="text-sm font-normal text-slate-500 ml-2">(0 / 6 Selected)</span></h2>
+                
+                <!-- Add Lender Controls -->
+                <div class="flex items-center gap-2 w-full sm:w-auto">
+                    <select id="lenderDropdown" class="block w-full sm:w-64 px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-blue-500">
+                        <option value="" disabled selected>-- Select a lender to add --</option>
+                        <!-- Options populated by JS -->
+                    </select>
+                    <button id="addLenderBtn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0">
+                        Add
+                    </button>
+                </div>
+            </div>
+
+            <!-- The Grid -->
+            <div id="comparisonGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Cards will be injected here via JavaScript -->
+            </div>
+            
+            <!-- Empty State -->
+            <div id="emptyState" class="text-center py-12 bg-white rounded-2xl border border-dashed border-slate-300 hidden">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-slate-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+                <h3 class="text-lg font-medium text-slate-900">No lenders selected</h3>
+                <p class="text-slate-500 mt-1">Select a lender from the dropdown above to start comparing.</p>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- GOOGLE SHEETS INTEGRATION ---
+        // Paste your published CSV link inside the quotes below:
+        const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSwLQC98juKWTkrk2kPRjPPEoqfaDqAaICJwKBWztGK-bHh86habX4gmbmF7lmH9dgNFYn2cLylOAc8/pub?output=csv"; 
+
+        // Empty array to hold the dynamic data
+        let lendersData = [];
+
+        // Application State
+        let state = {
+            amount: 500000,
+            term: 30,
+            type: 'pi',
+            freq: 'monthly',
+            selectedLenders: [] // Array of { id, customRate }
+        };
+
+        const MAX_LENDERS = 6;
+
+        // DOM Elements
+        const elGlobalAmount = document.getElementById('globalAmount');
+        const elGlobalTerm = document.getElementById('globalTerm');
+        const elGlobalType = document.getElementById('globalType');
+        const elGlobalFreq = document.getElementById('globalFreq');
+        
+        const elLenderDropdown = document.getElementById('lenderDropdown');
+        const elAddLenderBtn = document.getElementById('addLenderBtn');
+        const elComparisonGrid = document.getElementById('comparisonGrid');
+        const elEmptyState = document.getElementById('emptyState');
+        const elLenderCount = document.getElementById('lenderCount');
+
+        const formatCurrency = new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD',
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+
+        // Initialize Application
+        async function init() {
+            if (GOOGLE_SHEET_CSV_URL && GOOGLE_SHEET_CSV_URL.trim() !== "") {
+                try {
+                    // Fix for CORS / Iframe fetch issues: Use a CORS proxy to fetch the Google Sheet data safely
+                    const proxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(GOOGLE_SHEET_CSV_URL);
+                    const response = await fetch(proxyUrl);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const csvText = await response.text();
+                    
+                    Papa.parse(csvText, {
+                        header: true,
+                        complete: function(results) {
+                            if (results.data && results.data.length > 0) {
+                                processSheetData(results.data);
+                            } else {
+                                throw new Error("Parsed Google Sheet data is empty.");
+                            }
+                        },
+                        error: function(err) {
+                            console.error("PapaParse error:", err);
+                            loadFallbackData();
+                        }
+                    });
+                } catch (error) {
+                    console.error("Failed to fetch Google Sheet via proxy:", error);
+                    // Silently fall back to the attached hardcoded data if fetching fails
+                    loadFallbackData();
+                }
+            } else {
+                loadFallbackData();
+            }
+        }
+
+        function processSheetData(data) {
+            lendersData = [];
+            data.forEach(row => {
+                const lenderName = row['Lender'];
+                const repTypeStr = (row['Repayment type'] || '').toLowerCase().trim();
+                
+                if (!lenderName) return; // Skip empty rows
+
+                let calcType = 'standard'; // defaults to annualized/standard
+                if (repTypeStr.includes('accelerated')) {
+                    calcType = 'accelerated';
+                } else if (repTypeStr.includes('monthly')) {
+                    calcType = 'monthly_only';
+                }
+
+                lendersData.push({
+                    // Generate a safe unique ID from the bank name
+                    id: lenderName.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+                    name: lenderName,
+                    defaultRate: 6.00, // Default baseline rate
+                    calcType: calcType
+                });
+            });
+
+            // If the sheet returns empty for some reason, load the fallback.
+            if (lendersData.length === 0) {
+                loadFallbackData();
+            } else {
+                setupApp();
+            }
+        }
+
+        function loadFallbackData() {
+            console.log("Loading offline fallback data...");
+            // Temporary fallback containing the exact 34 lenders you provided
+            // so the app still functions perfectly even if Google Sheets is blocked.
+            lendersData = [
+                { id: 'adelaide_bank', name: 'Adelaide Bank', defaultRate: 6.00, calcType: 'accelerated' },
+                { id: 'amp', name: 'AMP', defaultRate: 6.00, calcType: 'accelerated' },
+                { id: 'anz', name: 'ANZ', defaultRate: 6.00, calcType: 'standard' },
+                { id: 'bank_of_china', name: 'Bank of China', defaultRate: 6.00, calcType: 'standard' },
+                { id: 'bank_of_melbourne', name: 'Bank of Melbourne', defaultRate: 6.00, calcType: 'accelerated' },
+                { id: 'bankwest', name: 'Bankwest', defaultRate: 6.00, calcType: 'accelerated' },
+                { id: 'bluestone', name: 'Bluestone', defaultRate: 6.00, calcType: 'accelerated' },
+                { id: 'brighten_home_loan', name: 'Brighten Home Loan', defaultRate: 6.00, calcType: 'standard' },
+                { id: 'commonwealth_bank', name: 'Commonwealth Bank', defaultRate: 6.00, calcType: 'standard' },
+                { id: 'connective_elevate', name: 'Connective Elevate (Bluestone)', defaultRate: 6.00, calcType: 'accelerated' },
+                { id: 'connective_select', name: 'Connective Select (Bendigo Bank)', defaultRate: 6.00, calcType: 'accelerated' },
+                { id: 'firstmac', name: 'Firstmac', defaultRate: 6.00, calcType: 'accelerated' },
+                { id: 'gateway_bank', name: 'Gateway Bank', defaultRate: 6.00, calcType: 'standard' },
+                { id: 'granite_home_loans', name: 'Granite Home Loans', defaultRate: 6.00, calcType: 'accelerated' },
+                { id: 'health_professionals_bank', name: 'Health Professionals Bank', defaultRate: 6.00, calcType: 'standard' },
+                { id: 'heritage_bank', name: 'Heritage Bank', defaultRate: 6.00, calcType: 'accelerated' },
+                { id: 'ing', name: 'ING', defaultRate: 6.00, calcType: 'standard' },
+                { id: 'la_trobe_financial', name: 'La Trobe Financial', defaultRate: 6.00, calcType: 'standard' },
+                { id: 'liberty_financial', name: 'Liberty Financial', defaultRate: 6.00, calcType: 'standard' },
+                { id: 'macquarie_bank', name: 'Macquarie Bank', defaultRate: 6.00, calcType: 'monthly_only' },
+                { id: 'me_bank', name: 'ME Bank', defaultRate: 6.00, calcType: 'standard' },
+                { id: 'mortgage_ezy', name: 'Mortgage Ezy', defaultRate: 6.00, calcType: 'accelerated' },
+                { id: 'mystate', name: 'MyState', defaultRate: 6.00, calcType: 'monthly_only' },
+                { id: 'nab', name: 'NAB', defaultRate: 6.00, calcType: 'standard' },
+                { id: 'newcastle_permanent', name: 'Newcastle Permanent', defaultRate: 6.00, calcType: 'accelerated' },
+                { id: 'peoples_choice', name: 'People\'s Choice Credit Union', defaultRate: 6.00, calcType: 'accelerated' },
+                { id: 'pepper_money', name: 'Pepper Money', defaultRate: 6.00, calcType: 'accelerated' },
+                { id: 'qudos_bank', name: 'Qudos Bank', defaultRate: 6.00, calcType: 'standard' },
+                { id: 'resimac', name: 'Resimac', defaultRate: 6.00, calcType: 'standard' },
+                { id: 'st_george_bank', name: 'St George Bank', defaultRate: 6.00, calcType: 'accelerated' },
+                { id: 'suncorp_bank', name: 'Suncorp Bank', defaultRate: 6.00, calcType: 'accelerated' },
+                { id: 'teachers_mutual_bank', name: 'Teachers Mutual Bank', defaultRate: 6.00, calcType: 'standard' },
+                { id: 'unibank', name: 'UniBank', defaultRate: 6.00, calcType: 'standard' },
+                { id: 'westpac', name: 'Westpac', defaultRate: 6.00, calcType: 'accelerated' }
+            ];
+            setupApp();
+        }
+
+        function setupApp() {
+            // Set default compare list (First two lenders if available)
+            if (lendersData.length >= 1) addLenderToState(lendersData[0].id);
+            if (lendersData.length >= 2) addLenderToState(lendersData[1].id);
+
+            // Event Listeners for Global Inputs
+            elGlobalAmount.addEventListener('input', (e) => { state.amount = parseFloat(e.target.value) || 0; render(); });
+            elGlobalTerm.addEventListener('input', (e) => { state.term = parseFloat(e.target.value) || 0; render(); });
+            elGlobalType.addEventListener('change', (e) => { state.type = e.target.value; render(); });
+            elGlobalFreq.addEventListener('change', (e) => { state.freq = e.target.value; render(); });
+
+            // Add Lender Event
+            elAddLenderBtn.addEventListener('click', () => {
+                const selectedId = elLenderDropdown.value;
+                if (selectedId) {
+                    addLenderToState(selectedId);
+                    elLenderDropdown.value = ""; // reset dropdown
+                }
+            });
+
+            // Grid Event Delegation for Removes and Rate Updates
+            elComparisonGrid.addEventListener('click', (e) => {
+                const btn = e.target.closest('.remove-lender-btn');
+                if (btn) {
+                    removeLenderFromState(btn.dataset.id);
+                }
+            });
+
+            elComparisonGrid.addEventListener('input', (e) => {
+                if (e.target.classList.contains('rate-input')) {
+                    const id = e.target.dataset.id;
+                    const newRate = parseFloat(e.target.value) || 0;
+                    updateLenderRate(id, newRate);
+                }
+            });
+
+            render();
+        }
+
+        // State Mutations
+        function addLenderToState(id) {
+            if (state.selectedLenders.length >= MAX_LENDERS) return;
+            if (state.selectedLenders.find(l => l.id === id)) return; // prevent duplicates
+
+            const lenderData = lendersData.find(l => l.id === id);
+            if (lenderData) {
+                state.selectedLenders.push({
+                    id: id,
+                    customRate: lenderData.defaultRate
+                });
+                render();
+            }
+        }
+
+        function removeLenderFromState(id) {
+            state.selectedLenders = state.selectedLenders.filter(l => l.id !== id);
+            render();
+        }
+
+        function updateLenderRate(id, newRate) {
+            const lender = state.selectedLenders.find(l => l.id === id);
+            if (lender) {
+                lender.customRate = newRate;
+                // Only re-render the specific card's results to avoid losing input focus
+                updateSingleCardDOM(id); 
+            }
+        }
+
+        // Core Calculation Math
+        function calculateRepayment(lenderId, rate) {
+            const lender = lendersData.find(l => l.id === lenderId);
+            const rAnnual = rate / 100;
+            const amount = state.amount;
+            const years = state.term;
+            
+            let periodsPerYear = 12;
+            let freqLabel = '/ mo';
+            if (state.freq === 'fortnightly') { periodsPerYear = 26; freqLabel = '/ fn'; }
+            if (state.freq === 'weekly') { periodsPerYear = 52; freqLabel = '/ wk'; }
+
+            // Handle "Monthly Only" limitation
+            if (lender.calcType === 'monthly_only' && state.freq !== 'monthly') {
+                return {
+                    error: true,
+                    errorMsg: 'Only supports Monthly repayments.',
+                    repayment: 0,
+                    totalInterest: 0,
+                    methodLabel: 'Monthly Only',
+                    freqLabel: freqLabel
+                };
+            }
+
+            const rMonthly = rAnnual / 12;
+            const totalMonths = years * 12;
+            const rPeriodic = rAnnual / periodsPerYear;
+            const totalPeriods = years * periodsPerYear;
+
+            const calcStandardPMT = (p, r, n) => {
+                if (r === 0) return p / n;
+                return p * (r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+            };
+
+            // 1. Calculate the base monthly figure
+            let monthlyFigure = 0;
+            if (state.type === 'io') {
+                monthlyFigure = amount * rMonthly;
+            } else {
+                monthlyFigure = calcStandardPMT(amount, rMonthly, totalMonths);
+            }
+
+            let repayment = 0;
+            let totalInterest = 0;
+            let methodLabel = '';
+            let isAccelerated = false;
+
+            if (state.freq === 'monthly') {
+                repayment = monthlyFigure;
+                totalInterest = state.type === 'io' ? (repayment * totalMonths) : ((repayment * totalMonths) - amount);
+                methodLabel = state.type === 'io' ? 'Standard Monthly (IO)' : 'Standard Monthly (P&I)';
+            } else {
+                if (lender.calcType === 'accelerated') {
+                    // ACCELERATED METHOD: Divide monthly by 2 or 4
+                    isAccelerated = true;
+                    repayment = state.freq === 'fortnightly' ? (monthlyFigure / 2) : (monthlyFigure / 4);
+
+                    // Amortize to find exact total interest due to faster payoff
+                    let balance = amount;
+                    while (balance > 0) {
+                        let interestForPeriod = balance * rPeriodic;
+                        let principalPaid = repayment - interestForPeriod;
+                        
+                        if (balance < principalPaid) {
+                            principalPaid = balance;
+                        }
+                        
+                        totalInterest += interestForPeriod;
+                        balance -= principalPaid;
+                        if (totalInterest > amount * 3) break; // safety break
+                    }
+                    
+                    methodLabel = 'Accelerated (Monthly ÷ ' + (state.freq === 'fortnightly' ? '2' : '4') + ')';
+                } else {
+                    // ANNUALIZED METHOD: Multiply monthly by 12, divide by 26 or 52
+                    repayment = state.freq === 'fortnightly' ? (monthlyFigure * 12) / 26 : (monthlyFigure * 12) / 52;
+                    
+                    totalInterest = state.type === 'io' ? (repayment * totalPeriods) : ((repayment * totalPeriods) - amount);
+                    methodLabel = 'Annualized (Monthly × 12 ÷ ' + (state.freq === 'fortnightly' ? '26' : '52') + ')';
+                }
+            }
+
+            return {
+                error: false,
+                repayment: repayment,
+                totalInterest: totalInterest,
+                methodLabel: methodLabel,
+                freqLabel: freqLabel,
+                isAccelerated: isAccelerated
+            };
+        }
+
+        // DOM Rendering
+        function render() {
+            renderDropdown();
+            renderGrid();
+            
+            // Update Headers
+            elLenderCount.textContent = `(${state.selectedLenders.length} / ${MAX_LENDERS} Selected)`;
+            elAddLenderBtn.disabled = state.selectedLenders.length >= MAX_LENDERS;
+            
+            if (state.selectedLenders.length === 0) {
+                elComparisonGrid.innerHTML = '';
+                elEmptyState.classList.remove('hidden');
+            } else {
+                elEmptyState.classList.add('hidden');
+            }
+        }
+
+        function renderDropdown() {
+            elLenderDropdown.innerHTML = '<option value="" disabled selected>-- Select a lender to add --</option>';
+            lendersData.forEach(lender => {
+                // Don't show lenders that are already selected
+                if (!state.selectedLenders.find(sl => sl.id === lender.id)) {
+                    const opt = document.createElement('option');
+                    opt.value = lender.id;
+                    opt.textContent = lender.name;
+                    elLenderDropdown.appendChild(opt);
+                }
+            });
+        }
+
+        function renderGrid() {
+            elComparisonGrid.innerHTML = '';
+            state.selectedLenders.forEach(lenderState => {
+                const lenderDef = lendersData.find(l => l.id === lenderState.id);
+                const results = calculateRepayment(lenderState.id, lenderState.customRate);
+                
+                const cardHtml = `
+                    <div class="card-enter bg-white rounded-2xl shadow-sm border ${results.isAccelerated ? 'border-blue-300 shadow-blue-50' : 'border-slate-200'} p-5 relative flex flex-col h-full" id="card-${lenderState.id}">
+                        
+                        <button data-id="${lenderState.id}" class="remove-lender-btn absolute top-4 right-4 text-slate-400 hover:text-red-500 transition-colors p-1" title="Remove">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+
+                        <div class="pr-8 mb-4">
+                            <h3 class="font-bold text-lg text-slate-800 leading-tight">${lenderDef.name}</h3>
+                            ${results.isAccelerated ? '<span class="inline-block mt-1 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">Accelerated Payoff</span>' : ''}
+                        </div>
+
+                        <div class="mb-5">
+                            <label class="text-xs text-slate-500 font-medium uppercase tracking-wider block mb-1">Interest Rate</label>
+                            <div class="flex items-center relative w-32">
+                                <input type="number" step="0.01" data-id="${lenderState.id}" value="${lenderState.customRate.toFixed(2)}" class="rate-input block w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
+                                <span class="absolute right-3 text-slate-400 pointer-events-none">%</span>
+                            </div>
+                        </div>
+
+                        <div class="mt-auto pt-4 border-t border-slate-100">
+                            <div class="text-xs text-slate-500 font-medium uppercase tracking-wider mb-1">Estimated Repayment</div>
+                            
+                            ${results.error ? `
+                                <div class="text-red-500 font-medium py-2">${results.errorMsg}</div>
+                                <div class="mt-4 space-y-3 text-sm">
+                                    <div class="flex justify-between items-start gap-4">
+                                        <span class="text-slate-500 whitespace-nowrap">Method:</span> 
+                                        <span class="text-right font-medium text-slate-700">${results.methodLabel}</span>
+                                    </div>
+                                </div>
+                            ` : `
+                                <div class="flex items-baseline text-blue-600 mb-4">
+                                    <span class="text-3xl font-bold tracking-tight repayment-val">${formatCurrency.format(results.repayment)}</span>
+                                    <span class="ml-1 text-sm font-medium text-slate-500">${results.freqLabel}</span>
+                                </div>
+                                <div class="space-y-3 text-sm">
+                                    <div class="flex justify-between items-start gap-4">
+                                        <span class="text-slate-500 whitespace-nowrap">Method:</span> 
+                                        <span class="text-right font-medium text-slate-700 leading-tight">${results.methodLabel}</span>
+                                    </div>
+                                    <div class="flex justify-between items-start gap-4">
+                                        <span class="text-slate-500 whitespace-nowrap">Total Interest:</span> 
+                                        <span class="text-right font-medium text-slate-700 total-int-val">${formatCurrency.format(results.totalInterest)}</span>
+                                    </div>
+                                </div>
+                            `}
+                        </div>
+                    </div>
+                `;
+                elComparisonGrid.insertAdjacentHTML('beforeend', cardHtml);
+            });
+        }
+
+        // Live update for rate typing (avoids full re-render which steals input focus)
+        function updateSingleCardDOM(lenderId) {
+            const lenderState = state.selectedLenders.find(l => l.id === lenderId);
+            const results = calculateRepayment(lenderId, lenderState.customRate);
+            
+            const card = document.getElementById(`card-${lenderId}`);
+            if(card && !results.error) {
+                const repEl = card.querySelector('.repayment-val');
+                const intEl = card.querySelector('.total-int-val');
+                if(repEl) repEl.textContent = formatCurrency.format(results.repayment);
+                if(intEl) intEl.textContent = formatCurrency.format(results.totalInterest);
+            }
+        }
+
+        // Start App
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
